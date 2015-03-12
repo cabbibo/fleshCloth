@@ -1,0 +1,628 @@
+<html>
+
+  <head>
+    <style>
+      body{ margin: 0px; }
+    </style>
+  </head>
+
+  <body>
+
+    <script src = "lib/leap.min.js"               ></script>
+    <script src = "lib/three.min.js"              ></script>
+    
+    <script src = "lib/underscore.js"             ></script>
+    <script src = "lib/jquery.min.js"             ></script>
+    <script src = "lib/TrackballControls.js"      ></script>
+    <script src = "lib/PhysicsRenderer.js"        ></script>
+    
+    <script src = "lib/VREffect.js"               ></script>
+    <script src = "lib/VRControls.js"             ></script>
+    
+    <script src = "lib/ShaderLoader.js"           ></script>
+
+    <script src = "lib/UserAudio.js"              ></script>
+    <script src = "lib/Stream.js"                 ></script>
+    <script src = "lib/AudioController.js"        ></script>
+    <script src = "lib/AudioTexture.js"           ></script>
+    <script src = "lib/PositionalAudio.js"        ></script>
+    <script src = "lib/Loop.js"                   ></script>
+    <script src = "lib/Looper.js"                 ></script>
+    
+    <script src = "lib/OBJLoader.js"              ></script>
+
+    <script src = "RepelerMesh.js"                ></script>
+    <script src = "GEM.js"                        ></script>
+
+    <script src = "initTones.js">                 ></script>
+
+    <script>
+
+      
+      var VR = false;
+      var AUDIO = true; 
+
+      var tv1 = new THREE.Vector3();
+      var tv2 = new THREE.Vector3();
+
+      var matcapTurq  = THREE.ImageUtils.loadTexture( 'img/matcap/turq.jpg'  );
+      var matcapBlood = THREE.ImageUtils.loadTexture( 'img/matcap/blood.jpg' );
+      var matcapDark  = THREE.ImageUtils.loadTexture( 'img/matcap/dark.jpg'  );
+      var matcapMetal = THREE.ImageUtils.loadTexture( 'img/matcap/metal.jpg' );
+
+
+      var counter = 0;
+      var G = {
+
+        dT:{type:"f" , value:0},
+        time:{type:"f" , value:0},
+        t_matcap:{ type:"t" , value: matcapDark },
+        t_blood:{ type:"t" , value: matcapDark },
+        fogColor:{ type:"v3" , value: new THREE.Vector3() },
+        t_audio:{type:"t",value:null},
+        fingers:{ type:"v3", value:[] }
+        //fingers:{ type:"v3", value:[] }
+
+      }
+
+      var REPELERS = [];
+
+      var loaded = 0;
+      var neededToLoad = 2;
+      var allLoaded = false;
+
+
+      var tones;
+      var camera, renderer, scene , controls;
+      
+      var vs, fs;
+
+      var geometry, material , light;
+
+      var gems = [];
+      var raycaster = new THREE.Raycaster(); 
+
+      var soundPos = new THREE.Vector3();
+      var soundPos1 = new THREE.Vector3();
+
+      var controller = new Leap.Controller();
+
+      var audioController = new AudioController();
+    
+     
+
+      var userAudio = new UserAudio( audioController );
+      userAudio.onStreamCreated = function(){
+
+        console.log('asds');
+        //onLoad();
+
+      }
+
+
+      //var audio = new UserAudio( audioController );
+
+
+      audioController.mute.gain.value = 0;
+      G.t_audio.value = audioController.texture;
+
+
+      initThree();
+      animate();
+      
+      if( VR == true ){
+        controller.setOptimizeHMD(true);
+      }
+
+      var shaders = new ShaderLoader( 'shaders' , 'shaderChunks'   );
+
+    
+     
+       shaders.shaderSetLoaded = function(){
+        onLoad();
+      }
+
+
+ 
+
+      shaders.load( 'ss-cloth' , 'fire' , 'simulation' );
+      
+      shaders.load( 'vs-sem'  , 'sem' , 'vertex' );
+      shaders.load( 'fs-sem' , 'sem' , 'fragment' );
+
+      shaders.load( 'vs-flesh'  , 'flesh' , 'vertex' );
+      shaders.load( 'fs-flesh' , 'flesh' , 'fragment' );
+
+
+      var OBJLoader = new THREE.OBJLoader();
+
+      OBJLoader.load( 'models/jesus.obj' , function( object ){
+
+      
+        object.traverse( function ( child ) {
+          if ( child instanceof THREE.Mesh ) {
+
+            console.log( 'YES');
+           // var modifier = new THREE.SubdivisionModifier( 1 );
+            modelGeo = child.geometry;
+            modelGeo.computeFaceNormals();
+
+           // modifier.modify( modelGeo );
+                      }
+        }.bind( this ));
+
+        onLoad();
+      });
+
+
+     
+      
+
+
+      // DONE AT THE BEGINNING, so we can load later
+      function initThree(){
+
+        var w = window.innerWidth;
+        var h = window.innerHeight;
+
+        clock = new THREE.Clock();
+
+        camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, .01, 1000 );
+        camera.position.z = .1;
+        camera.lookAt( new THREE.Vector3( 0 , 0 , -1 ) );
+
+
+        /*controls = new THREE.OrbitControls( camera );
+        controls.minPolarAngle = -Math.PI * .5;
+        controls.maxPolarAngle = Math.PI * .5;
+        controls.autoRotate = true;*/
+
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+
+        renderer.autoClear = false;
+       // renderer.setSize( window.innerWidth, window.innerHeight );
+
+        document.body.appendChild( renderer.domElement );
+        /*window.addEventListener( 'resize', onWindowResize , false );
+		    document.body.addEventListener( 'dblclick', onDoubleClick , false );
+
+        document.body.addEventListener("keydown", onKeyDown, true);*/
+
+
+
+        if( VR == true ){
+          /*
+
+          VR
+          
+          */
+          controls = new THREE.VRControls( camera );
+
+          effect = new THREE.VREffect( renderer );
+          effect.setSize( window.innerWidth, window.innerHeight );
+
+        }else{
+          renderer.setSize( window.innerWidth, window.innerHeight );
+        }
+
+
+
+        scene = new THREE.Scene();
+
+        //scene.fog = new THREE.Fog( 0x000000 , 1000, 40000 );
+
+
+        loadCube = new THREE.Mesh( 
+            new THREE.BoxGeometry( .04 , .04 , .04 ),
+            new THREE.MeshNormalMaterial()
+        );
+
+        //loadCube.scale.x = 1;
+        loadCube.position.z = -.1;
+
+        scene.add( loadCube );
+
+        
+        var g = new THREE.IcosahedronGeometry(.005 , 1 );
+        var m = new THREE.MeshBasicMaterial({
+          //map:audioController.texture,
+          color: 0x000000
+        });
+        for(var i = 0; i < 50; i++ ){
+
+        
+          var t = (i / 50 ) * 2 * Math.PI;
+
+          var x = Math.cos( t );
+          var y = Math.sin( t );
+          tv1.set( x , y , 0 );          
+          tv1.normalize().multiplyScalar( .08 );
+          tv1.sub( tv2.set( 0. , 0. , .07));
+
+          var mesh = new THREE.Mesh( g , m  );
+          mesh.target   = new THREE.Vector3().copy( tv1 );
+          mesh.velocity = new THREE.Vector3();
+          mesh.power    = new THREE.Vector3( 1 , 1 , 1);
+          mesh.radius   = new THREE.Vector3( 1 , 1 , 1);
+          
+          REPELERS.push( mesh );
+          G.fingers.value.push( mesh.position );
+
+          scene.add( mesh );
+
+          mesh.position.x = (Math.random() - .5 ) * 5;
+          mesh.position.z = (Math.random() - .5 ) * 5;
+
+        }
+
+
+       }
+
+
+
+      /*
+
+
+         SHADERS LOADED
+
+
+      */
+
+      var cubes =  [];
+
+      function init(){
+        
+
+        var size = .35;
+        var segments = 128;
+        var vs = shaders.setValue( shaders.vertexShaders.flesh , 'SIZE' , segments + "." );
+
+        var geo = new THREE.PlaneGeometry( size , size , segments , segments )
+
+
+
+
+        t = new THREE.Mesh( geo );
+
+        t.position.z = -.1;
+       // t.rotation.x = 2;
+       // t.rotation.y = 2;
+       // t.rotation.z = 2;
+
+
+        t.updateMatrix();
+       
+
+        //var g = new THREE.Mesh( new THREE.IcosahedronGeometry( 3 , 4 ) );
+        gem = new RepelerMesh( 'Parameters' , t, REPELERS , {
+          
+          vs: vs,
+          fs: shaders.fragmentShaders.flesh,
+
+      
+          soul:{
+
+            repulsionPower:     { type:"f" , value: -.0002 , constraints:[-300  , 0] },
+            
+
+            springLength:     { type:"f" , value: size / segments },
+            springMultiplier:     { type:"f" , value: 1000 },
+            repulsionRadius:     { type:"f" , value: .01 , constraints:[ 0  , 1000] },
+            dampening:     { type:"f" , value: .999 , constraints:[ .8  , 1 ] },
+
+
+          },
+
+          body:{
+            //t_refl:{type:"t" , value:reflectionCube},
+            //t_refr:{type:"t" , value:reflectionCube },
+            custom1:{type:"f" , value:.9 , constraints:[ .8 , 1 ]},
+            t_sem:{type:"t" , value: matcapBlood }
+          }
+
+        }); 
+
+        var g2 = gem.body.clone();
+
+        gem.soul.reset( gem.t_og.value );
+        gem.toggle();
+
+        g2.scale.multiplyScalar( 50 );
+        g2.position.z = 50 * .2
+        scene.add( g2 );
+
+        gems.push( gem );
+
+       
+
+        /*t = new THREE.Mesh( new THREE.BoxGeometry( .6 , .6 , .6 , 100 , 100 , 100 ) );
+
+        //t.position.z = 2;
+
+        t.updateMatrix();*/
+
+        /*var t = new THREE.Mesh( modelGeo );
+
+
+       // t.rotation.x = Math.PI / 2.7;
+       // t.rotation.y = -Math.PI / 2;
+        t.position.z = -.35;
+        t.position.y = -.1;
+        t.scale.multiplyScalar( .008 );
+        t.updateMatrix();
+        var rep = G.fingers.value;
+
+        console.log( rep );
+        //var g = new THREE.Mesh( new THREE.IcosahedronGeometry( 3 , 4 ) );
+        gem = new RepelerMesh( 'Parameters' , t, REPELERS , {
+
+          
+          vs: shaders.vertexShaders.sem,
+
+          fs: shaders.fragmentShaders.sem,
+      
+          soul:{
+
+            repulsionPower:     { type:"f" , value: -.0008 , constraints:[-300  , 0] },
+            repulsionRadius:     { type:"f" , value: 5. , constraints:[ 0  , 1000] },
+          },
+
+          body:{
+            //t_refl:{type:"t" , value:reflectionCube},
+            //t_refr:{type:"t" , value:reflectionCube },
+            custom1:{type:"f" , value:.9 , constraints:[ .8 , 1 ]},
+            t_sem:{type:"t" , value: matcapBlood }
+
+          }
+
+        }); 
+
+        gem.soul.reset( gem.t_og.value );
+        gem.toggle();
+
+        gems.push( gem );*/
+
+
+        controller.connect();
+
+       
+
+
+        // Get the load cube out of here
+        scene.remove( loadCube );
+
+      }
+
+      function animate(){
+
+        //counter ++;
+        //counter %= 10;
+        //if( counter ==  0 ){
+          
+          if( VR == true ){
+            controls.update();
+          }
+
+          G.dT.value = clock.getDelta();
+          G.time.value += G.dT.value;
+          
+          updateFingers( controller.frame() );
+
+          
+
+
+          if( allLoaded == true ){
+
+
+            for( var i =0; i < gems.length; i++ ){
+              gems[i].update();
+            }
+
+            if( AUDIO == true ){
+
+              
+              audioController.update();
+
+            }
+
+          }else{
+  
+            loadCube.rotation.x +=  G.dT.value;
+            loadCube.rotation.y -= .4 * G.dT.value;
+            loadCube.rotation.z += 2. * G.dT.value;
+
+          }
+
+         if( VR == true ){
+           effect.render( scene, camera );
+         }else{
+         renderer.render( scene , camera );
+         }
+
+       // }
+        requestAnimationFrame( animate );
+       // renderer.render( scene , camera );
+      }
+
+       // Resets the renderer to be the proper size
+      function onWindowResize(){
+
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        if( VR == true ){
+
+          effect.setSize( window.innerWidth , window.innerHeight );
+        }else{
+          renderer.setSize( window.innerWidth, window.innerHeight );
+        }
+
+
+      }
+
+		/*
+		Listen for keyboard event and zero positional sensor on appropriate keypress.
+		*/
+	  function onKeyDown(event) {
+	    event.preventDefault();
+
+	    if (event.keyCode == 90) { // z
+	    	controls.zeroSensor();
+	    }
+	  };
+
+      function onDoubleClick() {
+        effect.setFullScreen( true );
+      }
+
+       function updateFingers( frame ){
+
+     if( frame.hands[0] ){
+
+       //console.
+       for( var i = 0; i < 25; i++ ){
+
+          var rep = REPELERS[i];
+          rep.power.x = 256;
+         
+          var r = G.fingers.value[i];
+          var bI =  i % 5 ;                     // Bone index
+          var fI = Math.floor( i / 5 );     // finger index
+
+          var p = leapToScene( frame , frame.hands[0].fingers[fI].positions[bI] );
+
+          if( VR == true ){
+            
+            // z is y || x is x ||  y is -z
+            tv1.set( -p[0] , -p[2] , -p[1] );
+            r.copy( camera.position );
+            tv1.applyQuaternion( camera.quaternion );
+            r.add( tv1 );
+
+          }else{ 
+
+            r.copy( camera.position );
+            tv1.set( p[0] , p[1] -.3 , p[2] - .3 );
+            r.add( tv1 );
+
+          }
+          
+
+        }
+
+
+
+    }else{
+         //console.
+       for( var i = 0; i < 25; i++ ){
+
+         var r = REPELERS[i];
+
+         tv1.copy( r.position );
+         tv1.sub( r.target );
+         tv1.multiplyScalar( .03 );
+         r.position.sub( tv1 );
+
+    
+         var index = (i / 100 ) * audioController.analyzer.array.length;
+         index = Math.floor( index );
+         r.power.x = audioController.analyzer.array[ index ];
+         //console.log( r.power.x );
+
+        }
+
+
+
+      }
+
+
+
+    if( frame.hands[1]){
+
+        //console.
+       for( var i = 0; i < 25; i++ ){
+
+          var rep = REPELERS[i+25];
+          rep.power.x = 256
+
+          var r = G.fingers.value[i+25];
+          var bI =  i % 5 ;                     // Bone index
+          var fI = Math.floor( i / 5 );     // finger index
+
+          var p = leapToScene( frame , frame.hands[1].fingers[fI].positions[bI] );
+
+          if( VR == true ){
+            
+            // z is y || x is x ||  y is -z
+            tv1.set( -p[0] , -p[2] , -p[1] );
+            r.copy( camera.position );
+            tv1.applyQuaternion( camera.quaternion );
+            r.add( tv1 );
+
+          }else{ 
+
+            r.copy( camera.position );
+            tv1.set( p[0] , p[1] -.3 , p[2] - .3 );
+            r.add( tv1 );
+
+        }
+      }
+
+    }else{
+         //console.
+       for( var i = 0; i < 25; i++ ){
+
+         var r = REPELERS[i+25];
+
+         tv1.copy( r.position );
+         tv1.sub( r.target );
+         tv1.multiplyScalar( .03 );
+         r.position.sub( tv1 );
+
+         var index = ((i+25) / 100 ) * audioController.analyzer.array.length;
+         index = Math.floor( index );
+         r.power.x = audioController.analyzer.array[ index ];
+
+
+       }
+
+
+
+    }
+
+   
+  }
+
+  function leapToScene( frame , position  ){
+
+
+    var p =  position;  
+    return [ 
+      p[0] * .001,
+      p[1] * .001,
+      p[2] * .001
+    ]
+
+  }
+
+  function onLoad(){
+
+        loaded ++;
+
+        loadCube.scale.x = (loaded / neededToLoad) * 1
+        loadCube.scale.y = (loaded / neededToLoad) * 1
+        loadCube.scale.z = (loaded / neededToLoad) * 1
+       
+         
+        if( loaded == neededToLoad ){
+          allLoaded = true;
+          init();
+        }
+
+      }
+
+
+    </script>
+
+  </body>
+</html>
