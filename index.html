@@ -11,6 +11,9 @@
     <script src = "lib/leap.min.js"               ></script>
     <script src = "lib/three.min.js"              ></script>
     
+    <!-- HEAVY AUDIO -->
+    <script src = "lib/testLib.min.js"            ></script>
+    
     <script src = "lib/underscore.js"             ></script>
     <script src = "lib/jquery.min.js"             ></script>
     <script src = "lib/TrackballControls.js"      ></script>
@@ -34,7 +37,7 @@
     <script src = "RepelerMesh.js"                ></script>
     <script src = "GEM.js"                        ></script>
 
-    <script src = "initTones.js">                 ></script>
+    <script src = "Wrapper.js">                 ></script>
 
     <script>
 
@@ -88,22 +91,26 @@
       var controller = new Leap.Controller();
 
       var audioController = new AudioController();
-    
-     
+   
+      var pdPatch = new Wrapper( audioController );
+      pdPatch.start(); 
+      pdPatch.setValue( 'delay_fb' , .5 ); 
+      pdPatch.setValue( 'transpose' , .5 ); 
+      pdPatch.setValue( 'speed' , .5 ); 
 
-      var userAudio = new UserAudio( audioController );
+     /* var userAudio = new UserAudio( audioController );
       userAudio.onStreamCreated = function(){
 
         console.log('asds');
         //onLoad();
 
-      }
+      }*/
 
 
       //var audio = new UserAudio( audioController );
 
 
-      audioController.mute.gain.value = 0;
+      //audioController.mute.gain.value = 0;
       G.t_audio.value = audioController.texture;
 
 
@@ -479,6 +486,11 @@
 
      if( frame.hands[0] ){
 
+       var p =  normalizePosition( frame , frame.hands[0].palmPosition);
+       pdPatch.setValue( 'delay_fb'  , p[0] );
+       pdPatch.setValue( 'transpose' , p[1] );
+       pdPatch.setValue( 'speed'     , p[2] );
+
        //console.
        for( var i = 0; i < 25; i++ ){
 
@@ -602,6 +614,19 @@
       p[1] * .001,
       p[2] * .001
     ]
+
+  }
+
+  function normalizePosition( frame , position  ){
+
+
+    var p =  position;  
+    return frame.interactionBox.normalizePoint( position );
+   /* return [ 
+      p[0] * .001,
+      p[1] * .001,
+      p[2] * .001
+    ]*/
 
   }
 
