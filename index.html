@@ -42,7 +42,7 @@
     <script>
 
       
-      var VR = false;
+      var VR = true;
       var AUDIO = true; 
 
       var tv1 = new THREE.Vector3();
@@ -53,6 +53,9 @@
       var matcapDark  = THREE.ImageUtils.loadTexture( 'img/matcap/dark.jpg'  );
       var matcapMetal = THREE.ImageUtils.loadTexture( 'img/matcap/metal.jpg' );
 
+      var normalMap = THREE.ImageUtils.loadTexture( 'img/normals/carbonFiber.png' );
+
+      normalMap.wrapT = normalMap.wrapS = THREE.RepeatWrapping;
 
       var counter = 0;
       var G = {
@@ -63,6 +66,9 @@
         t_blood:{ type:"t" , value: matcapDark },
         fogColor:{ type:"v3" , value: new THREE.Vector3() },
         t_audio:{type:"t",value:null},
+        t_normal:{type:"t",value:normalMap},
+
+
         fingers:{ type:"v3", value:[] }
         //fingers:{ type:"v3", value:[] }
 
@@ -93,15 +99,15 @@
       var audioController = new AudioController();
    
       var pdPatch = new Wrapper( audioController );
-      pdPatch.start(); 
+     // pdPatch.start(); 
       pdPatch.setValue( 'delay_fb' , .5 ); 
       pdPatch.setValue( 'transpose' , .5 ); 
       pdPatch.setValue( 'speed' , .5 ); 
 
-     /* var userAudio = new UserAudio( audioController );
+      /*var userAudio = new UserAudio( audioController );
       userAudio.onStreamCreated = function(){
 
-        console.log('asds');
+        //console.log('asds');
         //onLoad();
 
       }*/
@@ -110,7 +116,7 @@
       //var audio = new UserAudio( audioController );
 
 
-      //audioController.mute.gain.value = 0;
+      audioController.mute.gain.value = 0;
       G.t_audio.value = audioController.texture;
 
 
@@ -129,42 +135,10 @@
         onLoad();
       }
 
-
- 
-
       shaders.load( 'ss-cloth' , 'fire' , 'simulation' );
       
-      shaders.load( 'vs-sem'  , 'sem' , 'vertex' );
-      shaders.load( 'fs-sem' , 'sem' , 'fragment' );
-
       shaders.load( 'vs-flesh'  , 'flesh' , 'vertex' );
       shaders.load( 'fs-flesh' , 'flesh' , 'fragment' );
-
-
-     /* var OBJLoader = new THREE.OBJLoader();
-
-      OBJLoader.load( 'models/jesus.obj' , function( object ){
-
-      
-        object.traverse( function ( child ) {
-          if ( child instanceof THREE.Mesh ) {
-
-            console.log( 'YES');
-           // var modifier = new THREE.SubdivisionModifier( 1 );
-            modelGeo = child.geometry;
-            modelGeo.computeFaceNormals();
-
-           // modifier.modify( modelGeo );
-                      }
-        }.bind( this ));
-
-        onLoad();
-      });*/
-
-
-     
-      
-
 
       // DONE AT THE BEGINNING, so we can load later
       function initThree(){
@@ -190,10 +164,8 @@
        // renderer.setSize( window.innerWidth, window.innerHeight );
 
         document.body.appendChild( renderer.domElement );
-        /*window.addEventListener( 'resize', onWindowResize , false );
-		    document.body.addEventListener( 'dblclick', onDoubleClick , false );
+        window.addEventListener( 'resize', onWindowResize , false );
 
-        document.body.addEventListener("keydown", onKeyDown, true);*/
 
 
 
@@ -244,7 +216,7 @@
           var y = Math.sin( t );
           tv1.set( x , y , 0 );          
           tv1.normalize().multiplyScalar( .08 );
-          tv1.sub( tv2.set( 0. , 0. , .07));
+          tv1.sub( tv2.set( 0. , 0. , 700000));
 
           var mesh = new THREE.Mesh( g , m  );
           mesh.target   = new THREE.Vector3().copy( tv1 );
@@ -280,114 +252,76 @@
       function init(){
         
 
-        var size = .35;
+        var size = .15;
         var segments = 128;
         var vs = shaders.setValue( shaders.vertexShaders.flesh , 'SIZE' , segments + "." );
 
         var geo = new THREE.PlaneGeometry( size , size , segments , segments )
 
 
+        var dir = [
+          [1,0,0],
+          [-1,0,0],
+          [0,1,0],
+          [0,-1,0],
+          [0,0,1],
+          [0,0,-1],
+        ]
 
+        for( var i = 0; i < 6; i++){
 
-        t = new THREE.Mesh( geo );
+          t = new THREE.Mesh( geo );
 
-        t.position.z = -.1;
-       // t.rotation.x = 2;
-       // t.rotation.y = 2;
-       // t.rotation.z = 2;
+          t.position.x = dir[i][0]*.5*size;
+          t.position.y = dir[i][1]*.5*size;
+          t.position.z = dir[i][2]*.5*size;
+          t.lookAt( new THREE.Vector3())
 
+          t.updateMatrix();
+         
 
-        t.updateMatrix();
-       
-
-        //var g = new THREE.Mesh( new THREE.IcosahedronGeometry( 3 , 4 ) );
-        gem = new RepelerMesh( 'Parameters' , t, REPELERS , {
-          
-          vs: vs,
-          fs: shaders.fragmentShaders.flesh,
-
-      
-          soul:{
-
-            repulsionPower:     { type:"f" , value: -.0002 , constraints:[-300  , 0] },
+          //var g = new THREE.Mesh( new THREE.IcosahedronGeometry( 3 , 4 ) );
+          gem = new RepelerMesh( 'Parameters' , t, REPELERS , {
             
+            vs: vs,
+            fs: shaders.fragmentShaders.flesh,
 
-            springLength:     { type:"f" , value: size / segments },
-            springMultiplier:     { type:"f" , value: 1000 },
-            repulsionRadius:     { type:"f" , value: .01 , constraints:[ 0  , 1000] },
-            dampening:     { type:"f" , value: .999 , constraints:[ .8  , 1 ] },
+        
+            soul:{
 
+              repulsionPower:     { type:"f" , value: .0000000002 , constraints:[-300  , 0] },
+              
 
-          },
-
-          body:{
-            //t_refl:{type:"t" , value:reflectionCube},
-            //t_refr:{type:"t" , value:reflectionCube },
-            custom1:{type:"f" , value:.9 , constraints:[ .8 , 1 ]},
-            t_sem:{type:"t" , value: matcapBlood }
-          }
-
-        }); 
-
-        var g2 = gem.body.clone();
-
-        gem.soul.reset( gem.t_og.value );
-        gem.toggle();
-
-        g2.scale.multiplyScalar( 50 );
-        g2.position.z = 50 * .2
-        scene.add( g2 );
-
-        gems.push( gem );
-
-       
-
-        /*t = new THREE.Mesh( new THREE.BoxGeometry( .6 , .6 , .6 , 100 , 100 , 100 ) );
-
-        //t.position.z = 2;
-
-        t.updateMatrix();*/
-
-        /*var t = new THREE.Mesh( modelGeo );
+              springLength:     { type:"f" , value: size / segments },
+              springMultiplier:     { type:"f" , value: 1000 },
+              repulsionRadius:     { type:"f" , value: .001 , constraints:[ 0  , 1000] },
+              dampening:     { type:"f" , value: .999 , constraints:[ .8  , 1 ] },
 
 
-       // t.rotation.x = Math.PI / 2.7;
-       // t.rotation.y = -Math.PI / 2;
-        t.position.z = -.35;
-        t.position.y = -.1;
-        t.scale.multiplyScalar( .008 );
-        t.updateMatrix();
-        var rep = G.fingers.value;
+            },
 
-        console.log( rep );
-        //var g = new THREE.Mesh( new THREE.IcosahedronGeometry( 3 , 4 ) );
-        gem = new RepelerMesh( 'Parameters' , t, REPELERS , {
+            body:{
+              t_normal:G.t_normal,
+              //t_refr:{type:"t" , value:reflectionCube },
+              custom1:{type:"f" , value:.9 , constraints:[ .8 , 1 ]},
+              t_sem:{type:"t" , value: matcapBlood },
+              lightPos:{ type:"v3",value:REPELERS[5].position}
+            }
 
+          }); 
+
+         
+
+          gem.soul.reset( gem.t_og.value );
+          gem.toggle();
+
+          var g2 = gem.body.clone();
+          g2.scale.multiplyScalar( -30 );
+          scene.add( g2 );
+
+          gems.push( gem );
           
-          vs: shaders.vertexShaders.sem,
-
-          fs: shaders.fragmentShaders.sem,
-      
-          soul:{
-
-            repulsionPower:     { type:"f" , value: -.0008 , constraints:[-300  , 0] },
-            repulsionRadius:     { type:"f" , value: 5. , constraints:[ 0  , 1000] },
-          },
-
-          body:{
-            //t_refl:{type:"t" , value:reflectionCube},
-            //t_refr:{type:"t" , value:reflectionCube },
-            custom1:{type:"f" , value:.9 , constraints:[ .8 , 1 ]},
-            t_sem:{type:"t" , value: matcapBlood }
-
-          }
-
-        }); 
-
-        gem.soul.reset( gem.t_og.value );
-        gem.toggle();
-
-        gems.push( gem );*/
+        }
 
 
         controller.connect();
