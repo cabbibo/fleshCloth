@@ -53,7 +53,7 @@
       var matcapDark  = THREE.ImageUtils.loadTexture( 'img/matcap/dark.jpg'  );
       var matcapMetal = THREE.ImageUtils.loadTexture( 'img/matcap/metal.jpg' );
 
-      var normalMap = THREE.ImageUtils.loadTexture( 'img/normals/carbonFiber.png' );
+      var normalMap = THREE.ImageUtils.loadTexture( 'img/normals/chesterfield.png' );
 
       normalMap.wrapT = normalMap.wrapS = THREE.RepeatWrapping;
 
@@ -165,6 +165,8 @@
 
         document.body.appendChild( renderer.domElement );
         window.addEventListener( 'resize', onWindowResize , false );
+
+
 
 
 
@@ -304,7 +306,7 @@
               t_normal:G.t_normal,
               //t_refr:{type:"t" , value:reflectionCube },
               custom1:{type:"f" , value:.9 , constraints:[ .8 , 1 ]},
-              t_sem:{type:"t" , value: matcapBlood },
+              t_sem:{type:"t" , value: matcapTurq },
               lightPos:{ type:"v3",value:REPELERS[5].position}
             }
 
@@ -316,13 +318,14 @@
           gem.toggle();
 
           var g2 = gem.body.clone();
-          g2.scale.multiplyScalar( -30 );
+          g2.scale.multiplyScalar( 30 );
           scene.add( g2 );
 
           gems.push( gem );
           
         }
 
+        //for( var i --)
 
         controller.connect();
 
@@ -377,7 +380,7 @@
          if( VR == true ){
            effect.render( scene, camera );
          }else{
-         renderer.render( scene , camera );
+           renderer.render( scene , camera );
          }
 
        // }
@@ -401,20 +404,7 @@
 
       }
 
-		/*
-		Listen for keyboard event and zero positional sensor on appropriate keypress.
-		*/
-	  function onKeyDown(event) {
-	    event.preventDefault();
 
-	    if (event.keyCode == 90) { // z
-	    	controls.zeroSensor();
-	    }
-	  };
-
-      function onDoubleClick() {
-        effect.setFullScreen( true );
-      }
 
        function updateFingers( frame ){
 
@@ -579,6 +569,56 @@
         }
 
       }
+
+
+  function onkey(event) {
+    //console.log(event.keyCode)
+
+    switch (event.keyCode) {
+      case 70: // f
+        enterVr();
+        break;
+      case 90:
+        alert( 'EYS');
+        positionDevice.zeroSensor();
+        break;
+    }
+  }
+
+  function onDoubleClick(e){
+    e.preventDefault();
+    enterVr();
+  }
+
+  function enterVr() {
+    if (container.requestFullscreen) {
+      container.requestFullscreen({ vrDisplay: hmdDevice });
+    } else if (container.mozRequestFullScreen) {
+      container.mozRequestFullScreen({ vrDisplay: hmdDevice });
+    } else if (container.webkitRequestFullscreen) {
+      container.webkitRequestFullscreen({ vrDisplay: hmdDevice });
+    }
+    container.focus();
+  }
+  
+  window.addEventListener("keydown", onkey, true);
+  window.addEventListener('dblclick', onDoubleClick , false );
+
+  var container = document.getElementById('container');
+
+  var hmdDevice, positionDevice;
+
+  navigator.getVRDevices().then(function(devices) {
+    for (var i = 0; i < devices.length; ++i) {
+      if (devices[i] instanceof HMDVRDevice) {
+        hmdDevice = devices[i];
+      }
+      if (devices[i] instanceof PositionSensorVRDevice) {
+        positionDevice = devices[i];
+      }
+    }
+    console.log(hmdDevice, positionDevice);
+  });
 
 
     </script>

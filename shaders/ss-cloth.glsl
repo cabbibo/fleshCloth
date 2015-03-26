@@ -6,6 +6,10 @@ uniform vec2 resolution;
 
 uniform sampler2D t_oPos;
 uniform sampler2D t_pos;
+uniform sampler2D t_posRight;
+uniform sampler2D t_posLeft;
+uniform sampler2D t_posTop;
+uniform sampler2D t_posBottom;
 uniform sampler2D t_og;
 uniform sampler2D t_audio;
 uniform float dT;
@@ -80,7 +84,7 @@ void main(){
   float xPow = abs((uv.x - .5 )); 
   float yPow = abs((uv.y - .5 )); 
   // moving back to og pos.
-  f -= dif * 20. * pow(( xPow + yPow ),3.);
+  f -= dif * .01 ;//* pow(( xPow + yPow ),3.);
 
   vec3 repel = pos.xyz - vec3( 1. , 0. , 0. );
 
@@ -95,11 +99,11 @@ void main(){
 
     float p = power[i].x/256.;
     //float p = 1.;
-    //if( rL < p * p * p * repulsionRadius ){
+    if( rL < .05 ){
 
-      f += repulsionPower *1. * p * rN / pow( rL , 5. );
+      f += repulsionPower * 1. * p * rN / pow( rL , 5. );
 
-    //}
+    }
 
 
   }
@@ -116,8 +120,16 @@ void main(){
       f += springMultiplier *  normalize( nP ) * pow( length( nP ) , power );
     }
 
- 
-  }
+  // If we are all the way to the Left, sample the next cube.
+  }/*else{
+
+    vec3 p1 = texture2D( t_posLeft , vec2( 1. - iSize , vUv.y )).xyz;
+    vec3 nP = springForce(  p , p1 , sl );
+    if( length( nP ) > .0001 ){
+      f += springMultiplier *  normalize( nP ) * pow( length( nP ) , power );
+    }
+
+  }*/
   
   if( vUv.x < 1. - iSize ){
 
@@ -127,8 +139,16 @@ void main(){
       f += springMultiplier *  normalize( nP ) * pow( length( nP ) , power );
     }
 
-  
-  }
+  // If we are all the way to the right, sample the next cube.
+  }/*else{
+
+    vec3 p1 = texture2D( t_posRight , vec2( iSize , vUv.y )).xyz;
+    vec3 nP = springForce(  p , p1 , sl );
+    if( length( nP ) > .0001 ){
+      f += springMultiplier *  normalize( nP ) * pow( length( nP ) , power );
+    }
+
+  }*/
 
   if( vUv.y > iSize ){
 
@@ -138,9 +158,17 @@ void main(){
       f += springMultiplier *  normalize( nP ) * pow( length( nP ) , power );
     }
 
-  
-  
-  }
+  // If we are all the way to the bottom, sample the down cube.
+  }/*else{
+
+    vec3 p1 = texture2D( t_posBottom , vec2( vUv.x , 1. - iSize )).xyz;
+    vec3 nP = springForce(  p , p1 , sl );
+    if( length( nP ) > .0001 ){
+      f += springMultiplier *  normalize( nP ) * pow( length( nP ) , power );
+    }
+
+  }*/
+
 
   if( vUv.y < 1. - iSize ){
 
@@ -151,9 +179,17 @@ void main(){
     }
 
  
-  }
+  }/*else{
 
-  if( vUv.y < 1. - iSize && vUv.x < 1. - iSize ){
+    vec3 p1 = texture2D( t_posTop , vec2( vUv.x , iSize )).xyz;
+    vec3 nP = springForce(  p , p1 , sl );
+    if( length( nP ) > .0001 ){
+      f += springMultiplier *  normalize( nP ) * pow( length( nP ) , power );
+    }
+
+  }*/
+
+  /*if( vUv.y < 1. - iSize && vUv.x < 1. - iSize ){
 
     vec3 p1 = texture2D( t_pos , vec2( vUv.x + iSize , vUv.y + iSize)).xyz;
     vec3 nP = springForce(  p , p1 , pow( 2. * sl*sl , .5 )  );
@@ -192,7 +228,7 @@ void main(){
       f += springMultiplier *  normalize( nP ) * pow( length( nP ) , power );
     }
 
-  }
+  }*/
   
 
   vel += f*min( .1 , dT);
@@ -212,9 +248,9 @@ void main(){
   
 
 
-  if( vUv.y < iSize || vUv.y > 1. - iSize || vUv.x < iSize || vUv.x > 1. - iSize  ){
+  /*if( vUv.y < iSize || vUv.y > 1. - iSize || vUv.x < iSize || vUv.x > 1. - iSize  ){
     p = pos.xyz;
-  }
+  }*/
 
   //gl_FragColor = vec4( og.xyz + sin( timer ) * 1.* vec3( vUv.x , vUv.y , 0. ), 1.  );
   gl_FragColor = vec4( p , life );
